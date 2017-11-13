@@ -177,7 +177,13 @@ func convertStrToMilitaryTime(time string) (string, error) {
 // returns true if successful, false otherwise
 // if user already has defined availability for the day, return false
 func addAvailToDay(avail Available, day DayOfWeek) (bool) {
-	return false
+	users := m[day]
+	userID := avail.UserID
+	if isUserInList(userID, users) {
+		return false
+	}
+	m[day] = append(users, avail)
+	return true
 }
 
 // checks if a user is in a list of available structs, based on User ID
