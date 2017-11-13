@@ -2,9 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 	"syscall"
 
@@ -34,8 +36,10 @@ const (
 
 type Available struct {
 	UserID string // leverage the fact that the discord library can get a User from their ID
-	TimeStart int // transform a string, ex: "12:30", into a corresponding int value, 1230
-	TimeEnd int // same as above, but must be an int value larger than timeStart
+	// expects all strings in the format "xx:xx", so "04:00" is valid but "4:00" is not
+	// this way, times can still be compared lexicographically
+	TimeStart string // strips the colon character from a time. "12:30" => "1230"
+	TimeEnd string // same as above, but value must be larger than timeStart
 	// this must be checked before creating an Available
 	Notes string
 }
@@ -142,11 +146,31 @@ func botHelp() (string) {
 	return "Scheduler usage: " // TODO: determine bot functionality and finish help message
 }
 
-// takes an input string that represents military time, ex: 15:29, and
-// returns an int mapping.
-// "15:29" => 1529
-func convertStrToTime(string) (int, error) {
-	return 0, nil
+// takes user input for available time
+// first validates that the string represents valid input, i.e.: "15:00"
+// if valid, returns a resulting string that strips the colon character from the string
+// the pattern [0-2]?[0-9]:[0-5][0-9] would allow for "35:00" to be validated
+// rather than account for that case, keep the regexp simple
+const pattern string = "[0-2][0-9]:[0-5][0-9]"
+// if we include "00:00" as a time, "24:00" cannot be included.
+const timeBound string = "2400" // lexicographically, all valid times will be less than this constant
+func convertStrToMilitaryTime(time string) (string, error) {
+	// first validate that our string input matches a pattern "00:00"
+	matched, err := regexp.MatchString(pattern, time)
+	if err != nil { // if an error occurred while attempting to match the string, return that error
+		return time, err
+	} else if !matched { // if no error, but not matched, return a different error
+		errorMsg := fmt.Sprintf("Invalid format: %s. Time expected in 00:00 format, military time.", time)
+		return time, errors.New(errorMsg)
+	}
+	// if no error occurred, and string input did match, then we can manipulate the string to remove the ':' character
+	time = strings.Replace(time, ":", "", -1)
+	// now check to make sure that the time is within our bound
+	if strings.Compare(time, timeBound) >= 0 { // if the value is greater than our bounds, return an error
+		errorMsg := fmt.Sprintf("Invalid value: %s. Time must be between 00:00 and 23:59 inclusive.")
+		return time, errors.New(errorMsg)
+	}
+	return time, nil
 }
 
 // attempts to add an available to the map for a given day
