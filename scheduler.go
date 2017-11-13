@@ -13,6 +13,7 @@ import (
 
 const prefix string = "!schedule" // prefix to all messages that interact with this bot
 var Token string // Bot token read from file
+var m map[DayOfWeek][]Available // a map where key = Day of the week, and value = list of available structs
 
 // struct that defines the json blob read from "discord_token.json"
 type Auth struct {
@@ -36,12 +37,9 @@ type Available struct {
 	TimeStart int // transform a string, ex: "12:30", into a corresponding int value, 1230
 	TimeEnd int // same as above, but must be an int value larger than timeStart
 	// this must be checked before creating an Available
+	Notes string
 }
 
-// TODO: figure out internal data structure that holds scheduling information
-// use a map based structure:
-// key = day of the week
-// value = array of Availability objects
 // TODO: set up cron job for clearing data weekly
 // TODO: set up cron job for determining user availability every Friday
 // TODO: keep track of users, decide on tracking users who respond or those who don't
@@ -89,6 +87,9 @@ func main() {
 		return
 	}
 
+	// instantiate our map after we successfully start the bot
+	m = make(map[DayOfWeek][]Available)
+
 	// see https://github.com/bwmarrin/discordgo/blob/master/examples/pingpong/main.go example
 	// Wait here until CTRL-C or other term signal is received.
 	fmt.Println("Bot is now running. Press CTRL-C to exit.")
@@ -106,8 +107,11 @@ func main() {
 // Restrict bot access to a text channel named "scheduler"
 // times are expected in military time, 0:00 - 23:59
 // !schedule add [me | User] day startTime endTime (optional: notes)
-// !schedule check User
-// !schedule
+// ex: !schedule add me Sunday 15:00 22:00 May be 15 minutes late
+// !schedule check [me | User]
+// ex: !schedule check @someUser
+// !schedule update [me | User] day startTime endTime (optional: notes)
+// ex: !schedule update @someUser Sunday 18:00 22:00 Need to run errands in the afternoon
 func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// ignore messages that are sent by this bot
 	if m.Author.ID == s.State.User.ID {
@@ -136,4 +140,29 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 // function that returns a string that gives a basic help output for using the bot
 func botHelp() (string) {
 	return "Scheduler usage: " // TODO: determine bot functionality and finish help message
+}
+
+// takes an input string that represents military time, ex: 15:29, and
+// returns an int mapping.
+// "15:29" => 1529
+func convertStrToTime(string) (int, error) {
+	return 0, nil
+}
+
+// attempts to add an available to the map for a given day
+// returns true if successful, false otherwise
+// if user already has defined availability for the day, return false
+func addAvailToDay(avail Available, day DayOfWeek) (bool) {
+	return false
+}
+
+// checks if a user is in a list of available structs, based on User ID
+// returns true if the user is found, false otherwise
+func isUserInList(user string, users []Available) (bool) {
+	for _, elem := range users {
+		if user == elem.UserID {
+			return true
+		}
+	}
+	return false
 }
