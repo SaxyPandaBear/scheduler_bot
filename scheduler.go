@@ -19,7 +19,29 @@ type Auth struct {
 	Token string
 }
 
+// expresses days of the week
+type DayOfWeek int
+const (
+	SUN DayOfWeek = iota
+	MON
+	TUES
+	WED
+	THURS
+	FRI
+	SAT
+) // https://stackoverflow.com/questions/14426366/what-is-an-idiomatic-way-of-representing-enums-in-go
+
+type Available struct {
+	UserID string // leverage the fact that the discord library can get a User from their ID
+	TimeStart int // transform a string, ex: "12:30", into a corresponding int value, 1230
+	TimeEnd int // same as above, but must be an int value larger than timeStart
+	// this must be checked before creating an Available
+}
+
 // TODO: figure out internal data structure that holds scheduling information
+// use a map based structure:
+// key = day of the week
+// value = array of Availability objects
 // TODO: set up cron job for clearing data weekly
 // TODO: set up cron job for determining user availability every Friday
 // TODO: keep track of users, decide on tracking users who respond or those who don't
@@ -81,13 +103,33 @@ func main() {
 }
 
 // TODO: define bot functionality
+// Restrict bot access to a text channel named "scheduler"
+// times are expected in military time, 0:00 - 23:59
+// !schedule add [me | User] day startTime endTime (optional: notes)
+// !schedule check User
+// !schedule
 func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// ignore messages that are sent by this bot
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
-	if strings.HasPrefix(m.Content, prefix) {
+	channel, err := s.Channel(m.ChannelID) // get the channel this message is from
+	if err != nil {
+		fmt.Printf("Error finding channel with ID = %s", m.ChannelID)
+	}
 
+	if channel.Type != discordgo.ChannelTypeGuildText {
+		return // we only want to **text channels** named "scheduler"
+	}
+
+	if !strings.EqualFold("scheduler", channel.Name) {
+		// if the channel name is not "scheduler" (case insensitive), don't process the message
+		return
+	}
+
+	// we only want to process messages that begin with our defined prefix, "!schedule"
+	if !strings.HasPrefix(m.Content, prefix) {
+		return
 	}
 }
 
