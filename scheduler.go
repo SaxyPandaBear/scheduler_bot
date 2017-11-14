@@ -14,8 +14,8 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-const prefix string = "!schedule" // prefix to all messages that interact with this bot
-var Token string // Bot token read from file
+const prefix = "!schedule"      // prefix to all messages that interact with this bot
+var Token string                // Bot token read from file
 var m map[DayOfWeek][]Available // a map where key = Day of the week, and value = list of available structs
 
 // struct that defines the json blob read from "discord_token.json"
@@ -36,13 +36,13 @@ const (
 ) // https://stackoverflow.com/questions/14426366/what-is-an-idiomatic-way-of-representing-enums-in-go
 
 type Available struct {
-	UserID string // leverage the fact that the discord library can get a User from their ID
-	// expects all strings in the format "xx:xx", so "04:00" is valid but "4:00" is not
-	// this way, times can still be compared lexicographically
-	TimeStart string // strips the colon character from a time. "12:30" => "1230"
-	TimeEnd string // same as above, but value must be larger than timeStart
-	// this must be checked before creating an Available
-	Notes string
+	UserID string 		// leverage the fact that the discord library can get a User from their ID
+						// expects all strings in the format "xx:xx", so "04:00" is valid but "4:00" is not
+						// this way, times can still be compared lexicographically
+	TimeStart string 	// strips the colon character from a time. "12:30" => "1230"
+	TimeEnd string 		// same as above, but value must be larger than timeStart
+						// this must be checked before creating an Available
+	Notes string		// any notes that the user has is stored here
 }
 
 // TODO: set up cron job for clearing data weekly
@@ -50,15 +50,15 @@ type Available struct {
 // TODO: keep track of users, decide on tracking users who respond or those who don't
 
 func init() {
-	// read the token from the json blob "discord_token.json"
+										// read the token from the json blob "discord_token.json"
 	file, err := os.Open("discord_token.json")
 	if err != nil {
 		fmt.Println("error reading file", err)
 		os.Exit(1)
 	}
 	readBytes := make([]byte, 100)
-	count, err := file.Read(readBytes) // read bytes of file into bytes array
-	// count tells us the exact number of bytes read for us to unmarshal
+	count, err := file.Read(readBytes) 	// read bytes of file into bytes array
+										// count tells us the exact number of bytes read for us to unmarshal
 	if err != nil {
 		fmt.Println("error reading file", err)
 		os.Exit(1)
@@ -190,9 +190,9 @@ func scheduleUpdate(user, day, timeStart, timeEnd, notes string) error {
 // if valid, returns a resulting string that strips the colon character from the string
 // the pattern [0-2]?[0-9]:[0-5][0-9] would allow for "35:00" to be validated
 // rather than account for that case, keep the regexp simple
-const pattern string = "[0-2][0-9]:[0-5][0-9]"
+const pattern = "[0-2][0-9]:[0-5][0-9]"
 // if we include "00:00" as a time, "24:00" cannot be included.
-const timeBound string = "2400" // lexicographically, all valid times will be less than this constant
+const timeBound = "2400" // lexicographically, all valid times will be less than this constant
 func convertStrToMilitaryTime(time string) (string, error) {
 	// first validate that our string input matches a pattern "00:00"
 	matched, err := regexp.MatchString(pattern, time)
