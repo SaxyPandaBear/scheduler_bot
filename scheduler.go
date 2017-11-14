@@ -206,7 +206,7 @@ func convertStrToMilitaryTime(time string) (string, error) {
 	time = strings.Replace(time, ":", "", -1)
 	// now check to make sure that the time is within our bound
 	if strings.Compare(time, timeBound) >= 0 { // if the value is greater than our bounds, return an error
-		errorMsg := fmt.Sprintf("Invalid value: %s. Time must be between 00:00 and 23:59 inclusive.")
+		errorMsg := fmt.Sprintf("Invalid value: %s. Time must be between 00:00 and 23:59 inclusive.", time)
 		return time, errors.New(errorMsg)
 	}
 	return time, nil
