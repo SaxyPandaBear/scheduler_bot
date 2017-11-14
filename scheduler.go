@@ -116,6 +116,7 @@ func main() {
 // ex: !schedule check @someUser
 // !schedule update [me | User] day startTime endTime (optional: notes)
 // ex: !schedule update @someUser Sunday 18:00 22:00 Need to run errands in the afternoon
+// !schedule available
 func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// ignore messages that are sent by this bot
 	if m.Author.ID == s.State.User.ID {
@@ -144,6 +145,26 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 // function that returns a string that gives a basic help output for using the bot
 func botHelp() (string) {
 	return "Scheduler usage: " // TODO: determine bot functionality and finish help message
+}
+
+// takes user input and adds a user's availability for a day to our map
+// if an error occurs, we return it, else return nil
+func scheduleAdd(user, day, timeStart, timeEnd, notes string) error {
+	// first we need to check if the user already has determined availability for a given day
+	// need to map day value to a corresponding DayOfTheWeek
+	dayOfWeek, err := mapStrToDay(day)
+	if err != nil {
+		return err
+	}
+
+
+	return nil
+}
+
+// takes user input and updates a user's availability for a day in our map
+// if an error occurs, we return it, else return nil
+func scheduleUpdate(user, day, timeStart, timeEnd, notes string) error {
+	return nil
 }
 
 // takes user input for available time
@@ -176,7 +197,7 @@ func convertStrToMilitaryTime(time string) (string, error) {
 // attempts to add an available to the map for a given day
 // returns true if successful, false otherwise
 // if user already has defined availability for the day, return false
-func addAvailToDay(avail Available, day DayOfWeek) (bool) {
+func addAvailToDay(avail Available, day DayOfWeek) bool {
 	users := m[day]
 	userID := avail.UserID
 	if isUserInList(userID, users) {
@@ -188,11 +209,28 @@ func addAvailToDay(avail Available, day DayOfWeek) (bool) {
 
 // checks if a user is in a list of available structs, based on User ID
 // returns true if the user is found, false otherwise
-func isUserInList(user string, users []Available) (bool) {
+func isUserInList(user string, users []Available) bool {
 	for _, elem := range users {
 		if user == elem.UserID {
 			return true
 		}
 	}
 	return false
+}
+
+// takes a string and returns a mapping to a DayOfTheWeek type
+// returns a non-nil error if the input string is not a valid day of the week
+func mapStrToDay(day string) (DayOfWeek, error) {
+	switch {
+	case strings.EqualFold(day, "Sunday"): return SUN, nil
+	case strings.EqualFold(day, "Monday"): return MON, nil
+	case strings.EqualFold(day, "Tuesday"): return TUES, nil
+	case strings.EqualFold(day, "Wednesday"): return WED, nil
+	case strings.EqualFold(day, "Thursday"): return THURS, nil
+	case strings.EqualFold(day, "Friday"): return FRI, nil
+	case strings.EqualFold(day, "Saturday"): return SAT, nil
+	default:
+		errorMsg := fmt.Sprintf("Invalid day of the week: %s. Must be Sunday thru Saturday")
+		return SUN, errors.New(errorMsg)
+	}
 }
