@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -55,15 +56,15 @@ func init() {
 		fmt.Println("error reading file", err)
 		os.Exit(1)
 	}
-	bytes := make([]byte, 100)
-	count, err := file.Read(bytes) // read bytes of file into bytes array
+	readBytes := make([]byte, 100)
+	count, err := file.Read(readBytes) // read bytes of file into bytes array
 	// count tells us the exact number of bytes read for us to unmarshal
 	if err != nil {
 		fmt.Println("error reading file", err)
 		os.Exit(1)
 	}
 	var tokenJson Auth
-	err = json.Unmarshal(bytes[:count], &tokenJson)
+	err = json.Unmarshal(readBytes[:count], &tokenJson)
 	if err != nil {
 		fmt.Println("error decoding json blob", err)
 		os.Exit(1)
@@ -154,9 +155,26 @@ func scheduleAdd(user, day, timeStart, timeEnd, notes string) error {
 	// need to map day value to a corresponding DayOfTheWeek
 	dayOfWeek, err := mapStrToDay(day)
 	if err != nil {
+		return err // if an error occurred, then our input string for the day was invalid
+	}
+
+	// day is validated so now check if the user already has availability defined for the given day
+	users := m[dayOfWeek]
+	if isUserInList(user, users) {
+		return errors.New("User already defined availability for day. Please use [!schedule update] instead.")
+	}
+
+	timeStart, err = convertStrToMilitaryTime(timeStart) // convert our times to their military counterparts
+	if err != nil {
+		return err
+	}
+	timeEnd, err = convertStrToMilitaryTime(timeEnd)
+	if err != nil {
 		return err
 	}
 
+	// if the user is not in our map for the given day, we add them
+	m[dayOfWeek] = append(users, Available{user, timeStart, timeEnd, notes})
 
 	return nil
 }
@@ -233,4 +251,18 @@ func mapStrToDay(day string) (DayOfWeek, error) {
 		errorMsg := fmt.Sprintf("Invalid day of the week: %s. Must be Sunday thru Saturday")
 		return SUN, errors.New(errorMsg)
 	}
+}
+
+// takes a slice of strings and returns the concatenation of them
+func concatenateNotes(parts []string) string {
+	// https://stackoverflow.com/questions/1760757/how-to-efficiently-concatenate-strings-in-go
+	var buffer bytes.Buffer
+
+	for index, elem := range parts {
+		buffer.WriteString(elem)
+		if index != len(parts) - 1 {
+			buffer.WriteString(" ")
+		}
+	}
+	return buffer.String()
 }
