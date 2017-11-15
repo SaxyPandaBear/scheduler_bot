@@ -141,11 +141,58 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if !strings.HasPrefix(m.Content, prefix) {
 		return
 	}
+
+	// process the message into parts
+	// if we made it this far we know that the first elem is "!schedule" so we can ignore it from now on
+	msgParts := strings.Split(m.Content, " ")
+	// if no other arguments are given, we can't process further. return after printing a help message
+	if len(msgParts) < 2 {
+		s.ChannelMessageSend(m.ChannelID, botHelp())
+		return // return after sending the message
+	}
+	// we want to branch based on the second token
+	op := msgParts[1] // process invoked is dependent on the operating statement
+	if strings.EqualFold(op, "add") { // !schedule add [me | User] day timeStart timeEnd (opt.) notes
+		// when the user specifies that they want to add, we have to check the number of args
+		// it must be at least 6 args in total
+		if len(msgParts) < 6 {
+			s.ChannelMessageSend(m.ChannelID, botAddUsage())
+		}
+		notes := "" // variable placeholder in case the user specifies notes for their availability
+		if len(msgParts) > 6 {
+			notes = concatenateNotes(msgParts[6:]) // any string from the 7th index onwards is part of our notes
+		}
+		err = scheduleAdd(msgParts[2], msgParts[3], msgParts[4], msgParts[5], notes)
+		if err != nil {
+			fmt.Println(err)
+			// also want to reprint add usage message
+			s.ChannelMessageSend(m.ChannelID, botAddUsage())
+			return
+		}
+		// err is nil, so we successfully added the user's availability. make this known to the channel
+		s.ChannelMessageSend(m.ChannelID, "Successfully added availability.")
+	} else {
+		s.ChannelMessageSend(m.ChannelID, unrecognizedOp(op))
+	}
 }
 
 // function that returns a string that gives a basic help output for using the bot
-func botHelp() (string) {
+func botHelp() string {
 	return "Scheduler usage: " // TODO: determine bot functionality and finish help message
+}
+
+// function that returns a string that details the usage for the add command
+func botAddUsage() string {
+	var buffer bytes.Buffer
+	buffer.WriteString("Add usage: !schedule add [me | User] day timeStart timeEnd (opt.) notes")
+	buffer.WriteString("\n")
+	buffer.WriteString("Example: !schedule add @Username Sunday 15:00 18:00")
+	return buffer.String()
+}
+
+// function that returns a string detailing that a given command is unrecognized
+func unrecognizedOp(op string) string {
+	return fmt.Sprintf("Unrecognized command: %s. Type !schedule help to see available commands", op)
 }
 
 // takes user input and adds a user's availability for a day to our map
@@ -171,6 +218,11 @@ func scheduleAdd(user, day, timeStart, timeEnd, notes string) error {
 	timeEnd, err = convertStrToMilitaryTime(timeEnd)
 	if err != nil {
 		return err
+	}
+	// need to check to make sure that the start time is less than the end time
+	if strings.Compare(timeStart, timeEnd) >= 0 {
+		errorMsg := fmt.Sprintf("Start time %s must be less than end time %s.", timeStart, timeEnd)
+		return errors.New(errorMsg)
 	}
 
 	// if the user is not in our map for the given day, we add them
@@ -235,7 +287,7 @@ func mapStrToDay(day string) (DayOfWeek, error) {
 	case strings.EqualFold(day, "Friday"): return FRI, nil
 	case strings.EqualFold(day, "Saturday"): return SAT, nil
 	default:
-		errorMsg := fmt.Sprintf("Invalid day of the week: %s. Must be Sunday thru Saturday")
+		errorMsg := fmt.Sprintf("Invalid day of the week: %s. Must be Sunday thru Saturday", day)
 		return SUN, errors.New(errorMsg)
 	}
 }
