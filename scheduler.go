@@ -157,6 +157,7 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		// it must be at least 6 args in total
 		if len(msgParts) < 6 {
 			s.ChannelMessageSend(m.ChannelID, botAddUsage())
+			return // make sure to return in order to short circuit the function
 		}
 		notes := "" // variable placeholder in case the user specifies notes for their availability
 		if len(msgParts) > 6 {
@@ -171,6 +172,24 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		// err is nil, so we successfully added the user's availability. make this known to the channel
 		s.ChannelMessageSend(m.ChannelID, "Successfully added availability.")
+	} else if strings.EqualFold(op, "update") {
+		// update requires at least 6 args
+		if len(msgParts) < 6 {
+			s.ChannelMessageSend(m.ChannelID, botUpdateUsage())
+			return
+		}
+		notes := ""
+		if len(msgParts) > 6 {
+			// get notes if we specify them
+			notes = concatenateNotes(msgParts[6:])
+		}
+		err = scheduleUpdate(msgParts[2], msgParts[3], msgParts[4], msgParts[5], notes)
+		if err != nil {
+			fmt.Println(err)
+			s.ChannelMessageSend(m.ChannelID, botUpdateUsage())
+			return
+		}
+		s.ChannelMessageSend(m.ChannelID, "Successfully updated availability.")
 	} else {
 		s.ChannelMessageSend(m.ChannelID, unrecognizedOp(op))
 	}
@@ -187,6 +206,15 @@ func botAddUsage() string {
 	buffer.WriteString("Add usage: !schedule add [me | User] day timeStart timeEnd (opt.) notes")
 	buffer.WriteString("\n")
 	buffer.WriteString("Example: !schedule add @Username Sunday 15:00 18:00")
+	return buffer.String()
+}
+
+// function that returns a string that details the usage for the update command
+func botUpdateUsage() string {
+	var buffer bytes.Buffer
+	buffer.WriteString("Update usage: !schedule update [me | User] day timeStart timeEnd (opt.) notes")
+	buffer.WriteString("\n")
+	buffer.WriteString("Example: !schedule update me Sunday 10:00 20:15 Took the day off from work.")
 	return buffer.String()
 }
 
@@ -208,7 +236,7 @@ func scheduleAdd(user, day, timeStart, timeEnd, notes string) error {
 	// day is validated so now check if the user already has availability defined for the given day
 	users := m[dayOfWeek]
 	if isUserInList(user, users) {
-		return errors.New("User already defined availability for day. Please use [!schedule update] instead.")
+		return errors.New("User already defined availability for day. Please use '!schedule update' instead.")
 	}
 
 	timeStart, err = convertStrToMilitaryTime(timeStart) // convert our times to their military counterparts
@@ -234,6 +262,31 @@ func scheduleAdd(user, day, timeStart, timeEnd, notes string) error {
 // takes user input and updates a user's availability for a day in our map
 // if an error occurs, we return it, else return nil
 func scheduleUpdate(user, day, timeStart, timeEnd, notes string) error {
+	dayOfWeek, err := mapStrToDay(day)
+	if err != nil {
+		return err
+	}
+
+	users := m[dayOfWeek]
+	if !isUserInList(user, users) {
+		return errors.New("User has not specified availability for this day. Please use '!schedule add' instead.")
+	}
+	// get start and end times
+	timeStart, err = convertStrToMilitaryTime(timeStart)
+	if err != nil {
+		return err
+	}
+	timeEnd, err = convertStrToMilitaryTime(timeEnd)
+	if err != nil {
+		return err
+	}
+
+	// update the values of a struct in our array of structs
+	err = updateUserAvailability(users, user, timeStart, timeEnd, notes)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -273,6 +326,35 @@ func isUserInList(user string, users []Available) bool {
 		}
 	}
 	return false
+}
+
+// takes an array of users and finds the user where the ID matches a param
+// updates the values of the found user
+// this assumes that the user is in the array.
+// if something goes wrong, return an error, else return nil
+func updateUserAvailability(users []Available, user, timeStart, timeEnd, notes string) error {
+	var avail *Available = nil
+	for _, elem := range users {
+		if user == elem.UserID {
+			avail = &elem
+			break
+		}
+	}
+	if avail == nil {
+		msg := fmt.Sprintf("User %s not found.", user)
+		return errors.New(msg)
+	}
+
+	// update values for this struct
+	avail.TimeStart = timeStart
+	avail.TimeEnd = timeEnd
+	// try to not throw away any notes, if we don't specify any new notes
+	if len(notes) < 1 {
+		return nil
+	}
+	avail.Notes = notes // new notes were specified, so we throw away the old ones
+
+	return nil
 }
 
 // takes a string and returns a mapping to a DayOfTheWeek type
