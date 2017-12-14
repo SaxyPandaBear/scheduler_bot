@@ -10,8 +10,10 @@ import (
 	"regexp"
 	"strings"
 	"syscall"
+	"database/sql"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mattn/go-sqlite3"
 )
 
 const prefix = "!schedule"      // prefix to all messages that interact with this bot
@@ -23,6 +25,7 @@ type Auth struct {
 	Token string
 }
 
+// TODO: convert project structure to incorporate SQLite integration rather than using a map
 // expresses days of the week
 type DayOfWeek int
 const (
